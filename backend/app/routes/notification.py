@@ -15,6 +15,21 @@ from app.core.dependencies import get_current_user, get_current_patient, get_cur
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
+@router.get("/", response_model=list[NotificationResponse], status_code=status.HTTP_200_OK)
+def get_all_notifications(
+    patient_id: int | None = None,
+    delivery_status: str | None = None,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    query = db.query(Notification)
+    if patient_id:
+        query = query.filter(Notification.patient_id == patient_id)
+    if delivery_status:
+        query = query.filter(Notification.delivery_status == delivery_status)
+    return query.order_by(Notification.created_at.desc()).all()
+
+
 @router.post("/", response_model=NotificationResponse, status_code=status.HTTP_201_CREATED)
 def create_notification(
     notification_data: NotificationCreate,

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.database import engine
 import app.models  # noqa: F401 - ensure all models are registered
@@ -11,6 +12,15 @@ from app.routes.notification import router as notification_router
 from app.routes.voice_call import router as voice_call_router
 
 app = FastAPI(title="Hospital Doctor Booking System")
+
+# Configure CORS for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router)
 app.include_router(patient_router)
