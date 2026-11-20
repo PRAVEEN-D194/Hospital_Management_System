@@ -17,35 +17,36 @@ import {
   ArrowRight,
   ShieldCheck,
   PhoneCall,
+  UserCheck,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
   const { isAuthenticated, role } = useAuth();
   const { t } = useLanguage();
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchFeaturedDoctors = async () => {
+    const fetchDefaultDoctor = async () => {
       try {
-        const data = await doctorService.getDoctors(true);
-        setDoctors(data.slice(0, 3)); // show top 3
+        const data = await doctorService.getDefaultDoctor();
+        setDoctor(data);
       } catch (err) {
-        console.error('Failed to load featured doctors', err);
+        console.error('Failed to load doctor', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchFeaturedDoctors();
+    fetchDefaultDoctor();
   }, []);
 
   const specializations = [
-    { name: 'Cardiology', icon: Heart, desc: 'Comprehensive heart care and diagnostic evaluations.' },
-    { name: 'Dermatology', icon: Activity, desc: 'Specialized clinical skin, hair, and nail treatments.' },
-    { name: 'Orthopedics', icon: Bone, desc: 'Joint reconstruction, sports medicine, and spine care.' },
-    { name: 'Neurology', icon: Brain, desc: 'Advanced neurological disorders and stroke care.' },
-    { name: 'Pediatrics', icon: Baby, desc: 'Dedicated healthcare for infants, children, and teens.' },
     { name: 'General Medicine', icon: Stethoscope, desc: 'Primary adult care, chronic illness, and prevention.' },
+    { name: 'Dermatology', icon: Activity, desc: 'Specialized clinical skin, hair, and nail treatments.' },
+    { name: 'Cardiology Support', icon: Heart, desc: 'Comprehensive heart care and diagnostic evaluations.' },
+    { name: 'Pediatrics', icon: Baby, desc: 'Dedicated healthcare for infants, children, and teens.' },
+    { name: 'Neurology Review', icon: Brain, desc: 'Advanced neurological disorders and stroke care.' },
+    { name: 'Orthopedics', icon: Bone, desc: 'Joint reconstruction, sports medicine, and spine care.' },
   ];
 
   const bookLink = isAuthenticated && role === 'patient' ? '/patient/book' : '/login';
@@ -79,7 +80,7 @@ export const HomePage: React.FC = () => {
                 to="/doctors"
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-white border border-gray-300 text-slate-700 font-medium text-sm hover:bg-gray-50 transition-colors"
               >
-                {t('exploreDoctors')}
+                Meet Our Doctor
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -95,19 +96,19 @@ export const HomePage: React.FC = () => {
               <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
                 <Stethoscope className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Expert Specialists</h3>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Dedicated Physician</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Consult with verified, experienced doctors committed to evidence-based healthcare.
+                Consult with our experienced hospital doctor committed to evidence-based healthcare and personalized patient recovery.
               </p>
             </div>
 
             <div className="border border-gray-200 rounded-lg p-6 bg-white shadow-2xs">
               <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
-                <Clock className="w-5 h-5" />
+                <Calendar className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Zero Waiting Time</h3>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Seamless Booking</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Choose defined consultation time slots and avoid lengthy outpatient queues.
+                Instant slot reservation without tedious doctor selection. Simply choose your preferred date and convenient time slot.
               </p>
             </div>
 
@@ -115,24 +116,24 @@ export const HomePage: React.FC = () => {
               <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
                 <PhoneCall className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Multilingual Patient Support</h3>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Voice & Digital Access</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Seamless booking in English and Tamil with dedicated telephone assistance.
+                Book online or speak with Mitra, our 24/7 AI Hospital Receptionist, in English or Tamil.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3. Available Specializations */}
-      <section className="py-16 bg-slate-50/70 border-b border-gray-200">
+      {/* 3. Clinical Services */}
+      <section className="py-16 bg-slate-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="text-center max-w-2xl mx-auto mb-12">
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-              {t('specializations')}
+              Clinical Specializations & Services
             </h2>
             <p className="mt-2 text-xs sm:text-sm text-slate-500">
-              Complete clinical care across major medical departments in our hospital.
+              Comprehensive medical assessments and specialized therapeutic care.
             </p>
           </div>
 
@@ -141,12 +142,10 @@ export const HomePage: React.FC = () => {
               const Icon = spec.icon;
               return (
                 <div key={spec.name} className="bg-white border border-gray-200 rounded-lg p-5">
-                  <div className="flex items-center gap-3 mb-2.5">
-                    <div className="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center">
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <h3 className="text-sm font-bold text-slate-900">{spec.name}</h3>
+                  <div className="w-9 h-9 rounded bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                    <Icon className="w-5 h-5" />
                   </div>
+                  <h3 className="text-sm font-bold text-slate-900 mb-1">{spec.name}</h3>
                   <p className="text-xs text-slate-600 leading-relaxed">{spec.desc}</p>
                 </div>
               );
@@ -155,71 +154,61 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. Featured Doctors */}
+      {/* 4. Single Consulting Doctor Spotlight */}
       <section className="py-16 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-end mb-10">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {t('featuredDoctors')}
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-8">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider">
+                Hospital Consulting Physician
+              </span>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight mt-2">
+                Consult With Our Doctor
               </h2>
-              <p className="mt-1.5 text-xs sm:text-sm text-slate-500">
-                Book a consultation with our experienced practitioners.
+              <p className="text-xs text-slate-500 mt-1">
+                Every appointment is automatically assigned to our hospital doctor for consistent, focused care.
               </p>
             </div>
-            <Link to="/doctors" className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              View All Doctors <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
 
-          {loading ? (
-            <div className="py-12 text-center text-xs text-gray-400">Loading doctors...</div>
-          ) : doctors.length === 0 ? (
-            <div className="py-12 text-center text-xs text-gray-500 border border-dashed border-gray-200 rounded-lg">
-              No doctors listed at this time.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {doctors.map((doc) => (
-                <div key={doc.doctor_id} className="border border-gray-200 rounded-lg p-5 bg-white flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm">
-                        {doc.full_name.charAt(0)}
-                      </div>
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
-                        {t('active')}
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-bold text-slate-900">{doc.full_name}</h3>
-                    <p className="text-xs text-blue-600 font-medium mt-0.5">{doc.specialization}</p>
-                    <p className="text-xs text-slate-500 mt-2 font-medium">
-                      {t('consultationFee')}: ₹{Number(doc.consultation_fee).toFixed(2)}
-                    </p>
+            {loading ? (
+              <div className="py-12 text-center text-xs text-gray-400">Loading doctor profile...</div>
+            ) : doctor ? (
+              <div className="bg-white border border-gray-200 rounded-lg p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xl shrink-0">
+                    {doctor.full_name.charAt(0)}
                   </div>
-
-                  <div className="mt-5 pt-4 border-t border-gray-100 flex gap-2">
-                    <Link
-                      to={`/doctors/${doc.doctor_id}`}
-                      className="flex-1 text-center py-2 px-3 text-xs font-medium border border-gray-300 rounded text-slate-700 hover:bg-gray-50 transition-colors"
-                    >
-                      {t('viewDetails')}
-                    </Link>
-                    <Link
-                      to={bookLink}
-                      className="flex-1 text-center py-2 px-3 text-xs font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                    >
-                      {t('bookAppointment')}
-                    </Link>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{doctor.full_name}</h3>
+                    <p className="text-xs font-semibold text-blue-600 mt-0.5">{doctor.specialization}</p>
+                    <div className="mt-2 text-xs text-slate-500 space-y-1">
+                      <p>Consultation Fee: <strong className="text-slate-800">₹{Number(doctor.consultation_fee).toFixed(2)}</strong></p>
+                      <p>Weekly Schedule: <span className="text-slate-700 font-medium">Monday to Sunday</span></p>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto shrink-0">
+                  <Link
+                    to="/doctors"
+                    className="text-center px-4 py-2.5 text-xs font-medium border border-gray-300 rounded text-slate-700 hover:bg-gray-50 transition-colors"
+                  >
+                    View Details
+                  </Link>
+                  <Link
+                    to={bookLink}
+                    className="text-center px-5 py-2.5 text-xs font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors shadow-xs"
+                  >
+                    Book Appointment
+                  </Link>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
-      {/* 5. How It Works */}
+      {/* 5. How It Works (Single Doctor Flow) */}
       <section className="py-16 bg-slate-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
@@ -227,33 +216,39 @@ export const HomePage: React.FC = () => {
               {t('howItWorks')}
             </h2>
             <p className="mt-2 text-xs sm:text-sm text-slate-500">
-              Simple 3-step online consultation reservation.
+              Fast, simple 3-step appointment booking.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-base mb-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="w-8 h-8 rounded bg-blue-100 text-blue-800 font-bold flex items-center justify-center text-xs mb-4">
                 1
               </div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2">{t('step1Title')}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">{t('step1Desc')}</p>
+              <h3 className="text-sm font-bold text-slate-900 mb-2">Enter Patient Information</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Provide patient name, age, and phone number. No need to browse or compare multiple doctors.
+              </p>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-base mb-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="w-8 h-8 rounded bg-blue-100 text-blue-800 font-bold flex items-center justify-center text-xs mb-4">
                 2
               </div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2">{t('step2Title')}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">{t('step2Desc')}</p>
+              <h3 className="text-sm font-bold text-slate-900 mb-2">Pick Date & Available Slot</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Choose any working day and select from live available 30-minute time slots.
+              </p>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-base mb-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="w-8 h-8 rounded bg-blue-100 text-blue-800 font-bold flex items-center justify-center text-xs mb-4">
                 3
               </div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2">{t('step3Title')}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">{t('step3Desc')}</p>
+              <h3 className="text-sm font-bold text-slate-900 mb-2">Automatic Confirmation</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                The appointment is automatically assigned to our hospital doctor with immediate confirmation and reminder alerts.
+              </p>
             </div>
           </div>
         </div>
@@ -261,3 +256,5 @@ export const HomePage: React.FC = () => {
     </div>
   );
 };
+
+export default HomePage;

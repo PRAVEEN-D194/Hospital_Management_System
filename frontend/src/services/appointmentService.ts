@@ -3,14 +3,42 @@ import type { Appointment, AppointmentStatus } from '../types';
 
 export const appointmentService = {
   async bookAppointment(data: {
-    doctor_id: number;
+    doctor_id?: number;
+    patient_name?: string;
+    patient_age?: number;
+    patient_phone?: string;
     appointment_date: string;
     start_time: string;
-    end_time: string;
+    end_time?: string;
     reason_for_visit?: string | null;
     booking_source?: 'web' | 'voice';
   }): Promise<Appointment> {
     const res = await apiClient.post<Appointment>('/appointments/', data);
+    return res.data;
+  },
+
+  async getAvailableSlots(date: string, doctorId?: number, excludeAppointmentId?: number): Promise<{
+    doctor: {
+      doctor_id: number;
+      full_name: string;
+      specialization: string;
+      consultation_fee: number;
+      phone: string;
+      email: string | null;
+    };
+    appointment_date: string;
+    total_slots: number;
+    available_slots_count: number;
+    slots: { start: string; end: string; is_available: boolean }[];
+    suggested_alternatives: { start: string; end: string; is_available: boolean }[];
+  }> {
+    const res = await apiClient.get('/appointments/available-slots', {
+      params: {
+        appointment_date: date,
+        doctor_id: doctorId,
+        exclude_appointment_id: excludeAppointmentId,
+      },
+    });
     return res.data;
   },
 
@@ -51,7 +79,7 @@ export const appointmentService = {
   async rescheduleAppointment(appointmentId: number, data: {
     appointment_date: string;
     start_time: string;
-    end_time: string;
+    end_time?: string;
   }): Promise<Appointment> {
     const res = await apiClient.patch<Appointment>(`/appointments/${appointmentId}/reschedule`, data);
     return res.data;

@@ -2,6 +2,29 @@ import { apiClient } from './api';
 import type { Doctor, DoctorSchedule } from '../types';
 
 export const doctorService = {
+  async getDefaultDoctor(): Promise<Doctor> {
+    try {
+      const res = await apiClient.get<Doctor>('/doctors/default');
+      if (res.data && res.data.doctor_id) {
+        return res.data;
+      }
+      throw new Error('Invalid doctor data received');
+    } catch (primaryErr) {
+      console.warn('Initial /doctors/default failed, attempting fallback to /doctors/?active_only=true', primaryErr);
+      try {
+        const fallbackRes = await apiClient.get<Doctor[]>('/doctors/', {
+          params: { active_only: true },
+        });
+        if (fallbackRes.data && fallbackRes.data.length > 0) {
+          return fallbackRes.data[0];
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback doctor query also failed', fallbackErr);
+      }
+      throw primaryErr;
+    }
+  },
+
   async getDoctors(activeOnly: boolean = true): Promise<Doctor[]> {
     const res = await apiClient.get<Doctor[]>('/doctors/', {
       params: { active_only: activeOnly },

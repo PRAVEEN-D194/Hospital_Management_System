@@ -4,16 +4,19 @@ from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class AppointmentCreate(BaseModel):
-    doctor_id: int
+    doctor_id: int | None = None
+    patient_name: str | None = None
+    patient_age: int | None = None
+    patient_phone: str | None = None
     appointment_date: date
     start_time: time
-    end_time: time
+    end_time: time | None = None
     reason_for_visit: str | None = Field(default=None, max_length=500)
     booking_source: Literal["web", "voice"] = "web"
 
     @model_validator(mode="after")
     def validate_times(self) -> "AppointmentCreate":
-        if self.start_time >= self.end_time:
+        if self.end_time is not None and self.start_time >= self.end_time:
             raise ValueError("start_time must be earlier than end_time")
         return self
 
@@ -21,11 +24,11 @@ class AppointmentCreate(BaseModel):
 class AppointmentReschedule(BaseModel):
     appointment_date: date
     start_time: time
-    end_time: time
+    end_time: time | None = None
 
     @model_validator(mode="after")
     def validate_times(self) -> "AppointmentReschedule":
-        if self.start_time >= self.end_time:
+        if self.end_time is not None and self.start_time >= self.end_time:
             raise ValueError("start_time must be earlier than end_time")
         return self
 

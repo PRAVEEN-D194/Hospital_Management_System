@@ -12,7 +12,7 @@ export const translations: Translations = {
   // Navigation & Common
   hospitalName: { en: 'St. Mary Multispeciality Hospital', ta: 'செயிண்ட் மேரி பல்நோக்கு மருத்துவமனை' },
   home: { en: 'Home', ta: 'முகப்பு' },
-  doctors: { en: 'Doctors', ta: 'மருத்துவர்கள்' },
+  doctors: { en: 'Our Doctor', ta: 'எங்கள் மருத்துவர்' },
   about: { en: 'About Us', ta: 'எங்களைப் பற்றி' },
   contact: { en: 'Contact', ta: 'தொடர்பு' },
   login: { en: 'Login', ta: 'உள்நுழை' },
@@ -41,20 +41,20 @@ export const translations: Translations = {
 
   // Hero Section
   heroTitle: { en: 'Your Health, Our Priority', ta: 'உங்கள் நல்வாழ்வு, எங்கள் முன்னுரிமை' },
-  heroSubtitle: { en: 'Book appointments with experienced doctors easily and conveniently.', ta: 'அனுபவம் வாய்ந்த மருத்துவர்களுடன் எளிதாகவும் வசதியாகவும் முன்பதிவு செய்யுங்கள்.' },
-  exploreDoctors: { en: 'Explore Doctors', ta: 'மருத்துவர்களைக் காண்க' },
+  heroSubtitle: { en: 'Book appointments with our hospital physician easily and conveniently.', ta: 'எங்கள் மருத்துவருடன் எளிதாகவும் வசதியாகவும் முன்பதிவு செய்யுங்கள்.' },
+  exploreDoctors: { en: 'Meet Our Doctor', ta: 'மருத்துவர் விவரம்' },
 
   // Sections
   howItWorks: { en: 'How Appointment Booking Works', ta: 'முன்பதிவு எவ்வாறு செயல்படுகிறது' },
-  step1Title: { en: '1. Choose a Doctor', ta: '1. மருத்துவரைத் தேர்ந்தெடுக்கவும்' },
-  step1Desc: { en: 'Select an experienced specialist matching your health needs.', ta: 'உங்கள் உடல்நலத் தேவைக்கேற்ற சிறந்த மருத்துவரைத் தேர்வு செய்யவும்.' },
+  step1Title: { en: '1. Enter Patient Details', ta: '1. நோயாளி விவரங்களை உள்ளிடவும்' },
+  step1Desc: { en: 'Provide patient name, age, and contact phone number.', ta: 'நோயாளி பெயர், வயது மற்றும் தொடர்பு எண்ணை வழங்கவும்.' },
   step2Title: { en: '2. Select Date & Slot', ta: '2. தேதி மற்றும் நேரத்தைத் தேர்வு செய்க' },
   step2Desc: { en: 'Pick a convenient working day and available consultation time.', ta: 'உங்களுக்கு வசதியான தேதி மற்றும் நேரத்தைத் தேர்ந்தெடுக்கவும்.' },
   step3Title: { en: '3. Instant Confirmation', ta: '3. உடனடி உறுதிப்படுத்தல்' },
-  step3Desc: { en: 'Receive instant confirmation and reminders on your dashboard.', ta: 'உங்கள் முன்பதிவு உடனடியாக உறுதிசெய்யப்பட்டு அறிவிப்புகள் பெறப்படும்.' },
+  step3Desc: { en: 'Automatically assigned to our hospital doctor with immediate confirmation.', ta: 'எங்கள் மருத்துவருடன் உடனடியாக உறுதிசெய்யப்பட்டு அறிவிப்புகள் பெறப்படும்.' },
 
-  specializations: { en: 'Available Specializations', ta: 'கிடைக்கும் மருத்துவ பிரிவுகள்' },
-  featuredDoctors: { en: 'Featured Doctors', ta: 'முன்னணி மருத்துவர்கள்' },
+  specializations: { en: 'Available Clinical Services', ta: 'கிடைக்கும் மருத்துவ பிரிவுகள்' },
+  featuredDoctors: { en: 'Our Consulting Physician', ta: 'எங்கள் முதன்மை மருத்துவர்' },
   contactUs: { en: 'Contact Us', ta: 'எங்களைத் தொடர்பு கொள்ள' },
   hospitalAddress: { en: '124 Healthcare Avenue, Medical City, Chennai - 600001', ta: '124 ஹெல்த்கேர் அவென்யூ, மெடிக்கல் சிட்டி, சென்னை - 600001' },
   hospitalPhone: { en: '+91 44 2855 0000', ta: '+91 44 2855 0000' },

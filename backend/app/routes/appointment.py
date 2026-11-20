@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +15,7 @@ from app.schemas.appointment import (
     AppointmentStatusUpdate, AppointmentResponse
 )
 from app.core.dependencies import get_current_user, get_current_patient, get_current_admin
+from app.routes.doctor import get_default_doctor
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
@@ -79,27 +80,152 @@ def check_doctor_availability_and_schedule(
         )
 
 
+def generate_slots_for_doctor(db: Session, doctor_id: int, appointment_date: date, exclude_appointment_id: int | None = None):
+    day_of_week = appointment_date.weekday()
+    schedules = db.query(DoctorSchedule).filter(
+        DoctorSchedule.doctor_id == doctor_id,
+        DoctorSchedule.day_of_week == day_of_week,
+        DoctorSchedule.is_available.is_(True)
+    ).order_by(DoctorSchedule.start_time).all()
+
+    query = db.query(Appointment).filter(
+        Appointment.doctor_id == doctor_id,
+        Appointment.appointment_date == appointment_date,
+        Appointment.appointment_status.notin_(["cancelled", "rejected"])
+    )
+    if exclude_appointment_id is not None:
+        query = query.filter(Appointment.appointment_id != exclude_appointment_id)
+    existing_appts = query.all()
+
+    slots = []
+    for sched in schedules:
+        duration = sched.slot_duration_minutes or 30
+        cur_dt = datetime.combine(appointment_date, sched.start_time)
+        end_dt = datetime.combine(appointment_date, sched.end_time)
+
+        while cur_dt + timedelta(minutes=duration) <= end_dt:
+            slot_start = cur_dt.time()
+            slot_end = (cur_dt + timedelta(minutes=duration)).time()
+
+            is_booked = any(
+                a.start_time < slot_end and a.end_time > slot_start
+                for a in existing_appts
+            )
+
+            slots.append({
+                "start": slot_start.strftime("%H:%M"),
+                "end": slot_end.strftime("%H:%M"),
+                "is_available": not is_booked
+            })
+            cur_dt += timedelta(minutes=duration)
+
+    return slots
+
+
+@router.get("/available-slots", status_code=status.HTTP_200_OK)
+def get_available_slots_endpoint(
+    appointment_date: date = Query(..., description="Date of appointment"),
+    doctor_id: int | None = Query(default=None, description="Doctor ID, defaults to single configured doctor"),
+    exclude_appointment_id: int | None = Query(default=None, description="Appointment ID to exclude from conflicts"),
+    db: Session = Depends(get_db)
+):
+    if not doctor_id:
+        doc = get_default_doctor(db)
+        doctor_id = doc.doctor_id
+    else:
+        doc = db.get(Doctor, doctor_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+
+    slots = generate_slots_for_doctor(db, doctor_id, appointment_date, exclude_appointment_id=exclude_appointment_id)
+    available_count = sum(1 for s in slots if s["is_available"])
+    return {
+        "doctor": {
+            "doctor_id": doc.doctor_id,
+            "full_name": doc.full_name,
+            "specialization": doc.specialization,
+            "consultation_fee": float(doc.consultation_fee),
+            "phone": doc.phone,
+            "email": doc.email
+        },
+        "appointment_date": str(appointment_date),
+        "total_slots": len(slots),
+        "available_slots_count": available_count,
+        "slots": slots,
+        "suggested_alternatives": [s for s in slots if s["is_available"]][:6]
+    }
+
+
 @router.post("/", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
 def book_appointment(
     appointment_data: AppointmentCreate,
     db: Session = Depends(get_db),
     current_patient: Patient = Depends(get_current_patient)
 ):
-    check_doctor_availability_and_schedule(
-        db=db,
-        doctor_id=appointment_data.doctor_id,
-        appointment_date=appointment_data.appointment_date,
-        start_time=appointment_data.start_time,
-        end_time=appointment_data.end_time
-    )
+    # 1. Automatic Doctor Assignment if omitted
+    doctor_id = appointment_data.doctor_id
+    if not doctor_id:
+        default_doc = get_default_doctor(db)
+        doctor_id = default_doc.doctor_id
+    else:
+        default_doc = db.get(Doctor, doctor_id)
+        if not default_doc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor not found")
+
+    # 2. Automatic end_time calculation if omitted
+    start_time = appointment_data.start_time
+    end_time = appointment_data.end_time
+    if not end_time:
+        day_of_week = appointment_data.appointment_date.weekday()
+        sched = db.query(DoctorSchedule).filter(
+            DoctorSchedule.doctor_id == doctor_id,
+            DoctorSchedule.day_of_week == day_of_week,
+            DoctorSchedule.is_available.is_(True),
+            DoctorSchedule.start_time <= start_time
+        ).first()
+        duration = sched.slot_duration_minutes if sched else 30
+        start_dt = datetime.combine(appointment_data.appointment_date, start_time)
+        end_time = (start_dt + timedelta(minutes=duration)).time()
+
+    # 3. Check Doctor availability with alternative suggestions on conflict
+    try:
+        check_doctor_availability_and_schedule(
+            db=db,
+            doctor_id=doctor_id,
+            appointment_date=appointment_data.appointment_date,
+            start_time=start_time,
+            end_time=end_time
+        )
+    except HTTPException as e:
+        if e.status_code == status.HTTP_409_CONFLICT:
+            all_slots = generate_slots_for_doctor(db, doctor_id, appointment_data.appointment_date)
+            alt_slots = [s for s in all_slots if s["is_available"]][:5]
+            suggested_text = f" Alternative available slots: {', '.join(s['start'] for s in alt_slots)}" if alt_slots else " No other slots available on this date."
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"The selected time slot ({start_time.strftime('%H:%M')}) is already booked.{suggested_text}"
+            )
+        raise e
+
+    # 4. Include patient demographics (Name, Age, Phone) in record
+    meta_parts = []
+    if appointment_data.patient_name:
+        meta_parts.append(f"Patient: {appointment_data.patient_name}")
+    if appointment_data.patient_age:
+        meta_parts.append(f"Age: {appointment_data.patient_age}")
+    if appointment_data.patient_phone:
+        meta_parts.append(f"Phone: {appointment_data.patient_phone}")
+    if appointment_data.reason_for_visit:
+        meta_parts.append(f"Reason: {appointment_data.reason_for_visit}")
+    combined_reason = " | ".join(meta_parts) if meta_parts else appointment_data.reason_for_visit
 
     new_appointment = Appointment(
         patient_id=current_patient.patient_id,
-        doctor_id=appointment_data.doctor_id,
+        doctor_id=doctor_id,
         appointment_date=appointment_data.appointment_date,
-        start_time=appointment_data.start_time,
-        end_time=appointment_data.end_time,
-        reason_for_visit=appointment_data.reason_for_visit,
+        start_time=start_time,
+        end_time=end_time,
+        reason_for_visit=combined_reason,
         appointment_status="confirmed",
         booking_source=appointment_data.booking_source
     )
@@ -109,13 +235,13 @@ def book_appointment(
         db.flush()
 
         # Create automated notification
-        doctor = db.get(Doctor, appointment_data.doctor_id)
-        doctor_name = doctor.full_name if doctor else f"Doctor ID {appointment_data.doctor_id}"
+        doctor = db.get(Doctor, doctor_id)
+        doctor_name = doctor.full_name if doctor else f"Doctor ID {doctor_id}"
         notification = Notification(
             patient_id=current_patient.patient_id,
             appointment_id=new_appointment.appointment_id,
             notification_type="appointment_booked",
-            message=f"Your appointment with {doctor_name} has been booked for {appointment_data.appointment_date} at {appointment_data.start_time.strftime('%H:%M')}.",
+            message=f"Your appointment with {doctor_name} has been booked for {appointment_data.appointment_date} at {start_time.strftime('%H:%M')}.",
             delivery_channel="in-app",
             delivery_status="pending"
         )
@@ -302,19 +428,35 @@ def reschedule_appointment(
             detail=f"Cannot reschedule an appointment with status '{appointment.appointment_status}'"
         )
 
+    # Determine start_time and end_time
+    start_time = reschedule_data.start_time
+    end_time = reschedule_data.end_time
+    if not end_time:
+        day_of_week = reschedule_data.appointment_date.weekday()
+        sched = db.query(DoctorSchedule).filter(
+            DoctorSchedule.doctor_id == appointment.doctor_id,
+            DoctorSchedule.day_of_week == day_of_week,
+            DoctorSchedule.start_time <= start_time,
+            DoctorSchedule.end_time > start_time,
+            DoctorSchedule.is_available.is_(True)
+        ).first()
+        duration = sched.slot_duration_minutes if sched and sched.slot_duration_minutes else 30
+        end_dt = datetime.combine(reschedule_data.appointment_date, start_time) + timedelta(minutes=duration)
+        end_time = end_dt.time()
+
     # Validate new timing
     check_doctor_availability_and_schedule(
         db=db,
         doctor_id=appointment.doctor_id,
         appointment_date=reschedule_data.appointment_date,
-        start_time=reschedule_data.start_time,
-        end_time=reschedule_data.end_time,
+        start_time=start_time,
+        end_time=end_time,
         exclude_appointment_id=appointment_id
     )
 
     appointment.appointment_date = reschedule_data.appointment_date
-    appointment.start_time = reschedule_data.start_time
-    appointment.end_time = reschedule_data.end_time
+    appointment.start_time = start_time
+    appointment.end_time = end_time
     appointment.updated_at = datetime.now(timezone.utc)
 
     # Notification
@@ -322,7 +464,7 @@ def reschedule_appointment(
         patient_id=appointment.patient_id,
         appointment_id=appointment.appointment_id,
         notification_type="appointment_rescheduled",
-        message=f"Your appointment has been rescheduled to {reschedule_data.appointment_date} at {reschedule_data.start_time.strftime('%H:%M')}.",
+        message=f"Your appointment has been rescheduled to {reschedule_data.appointment_date} at {start_time.strftime('%H:%M')}.",
         delivery_channel="in-app",
         delivery_status="pending"
     )

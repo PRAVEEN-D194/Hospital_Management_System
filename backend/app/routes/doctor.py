@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -46,10 +47,48 @@ def get_doctors(
     active_only: bool = Query(default=True, description="Filter for active doctors only"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Doctor)
-    if active_only:
-        query = query.filter(Doctor.is_active.is_(True))
-    return query.order_by(Doctor.doctor_id).all()
+    try:
+        query = db.query(Doctor)
+        if active_only:
+            query = query.filter(Doctor.is_active.is_(True))
+        return query.order_by(Doctor.doctor_id).all()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error while querying doctors list: {str(exc)}"
+        )
+
+
+def get_default_doctor(db: Session) -> Doctor:
+    try:
+        default_id_str = os.getenv("DEFAULT_DOCTOR_ID")
+        if default_id_str and default_id_str.strip().isdigit():
+            doc = db.get(Doctor, int(default_id_str.strip()))
+            if doc and doc.is_active:
+                return doc
+        # Fallback to first active doctor
+        doc = db.query(Doctor).filter(Doctor.is_active.is_(True)).order_by(Doctor.doctor_id).first()
+        if not doc:
+            # Fallback to any doctor if none is marked active
+            doc = db.query(Doctor).order_by(Doctor.doctor_id).first()
+        if not doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No doctor found in the system. Please contact the administrator."
+            )
+        return doc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database connection error while retrieving doctor: {str(exc)}"
+        )
+
+
+@router.get("/default", response_model=DoctorResponse, status_code=status.HTTP_200_OK)
+def get_default_doctor_endpoint(db: Session = Depends(get_db)):
+    return get_default_doctor(db)
 
 
 @router.get("/{doctor_id}", response_model=DoctorResponse, status_code=status.HTTP_200_OK)
@@ -57,13 +96,21 @@ def get_doctor(
     doctor_id: int,
     db: Session = Depends(get_db)
 ):
-    doctor = db.get(Doctor, doctor_id)
-    if doctor is None:
+    try:
+        doctor = db.get(Doctor, doctor_id)
+        if doctor is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Doctor not found"
+            )
+        return doctor
+    except HTTPException:
+        raise
+    except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Doctor not found"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error while retrieving doctor: {str(exc)}"
         )
-    return doctor
 
 
 @router.put("/{doctor_id}", response_model=DoctorResponse, status_code=status.HTTP_200_OK)

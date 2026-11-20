@@ -5,31 +5,27 @@ import { useLanguage } from '../../context/LanguageContext';
 import { appointmentService } from '../../services/appointmentService';
 import { doctorService } from '../../services/doctorService';
 import type { Appointment, Doctor } from '../../types';
-import { Calendar, CalendarPlus, CheckCircle2, Clock, Bell, User, ArrowRight } from 'lucide-react';
+import { Calendar, CalendarPlus, CheckCircle2, Clock, Bell, User, ArrowRight, Stethoscope } from 'lucide-react';
+import { MitraVoiceAgent } from '../../components/MitraVoiceAgent';
 
 export const PatientDashboard: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [doctorsMap, setDoctorsMap] = useState<Record<number, Doctor>>({});
+  const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [appts, docs] = await Promise.all([
+        const [appts, doc] = await Promise.all([
           appointmentService.getMyAppointments(),
-          doctorService.getDoctors(false),
+          doctorService.getDefaultDoctor().catch(() => null),
         ]);
         setAppointments(appts);
-
-        const map: Record<number, Doctor> = {};
-        docs.forEach((d) => {
-          map[d.doctor_id] = d;
-        });
-        setDoctorsMap(map);
+        setDoctor(doc);
       } catch (err) {
         console.error('Failed to load dashboard data', err);
       } finally {
@@ -67,6 +63,37 @@ export const PatientDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Hospital Doctor Info Card */}
+      {doctor && (
+        <div className="bg-white border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-full bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold shrink-0">
+              <Stethoscope className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  {doctor.full_name}
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold border border-blue-200">
+                  Hospital Doctor
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {doctor.specialization} • Consultation Fee: ₹{Number(doctor.consultation_fee).toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/patient/book"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 self-start sm:self-auto"
+          >
+            Book with {doctor.full_name.split(' ')[0]} <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-5">
@@ -102,10 +129,13 @@ export const PatientDashboard: React.FC = () => {
             {nextAppt ? `${nextAppt.appointment_date} at ${nextAppt.start_time.slice(0, 5)}` : 'None upcoming'}
           </p>
           <span className="text-[11px] text-slate-400 mt-0.5 block truncate">
-            {nextAppt && doctorsMap[nextAppt.doctor_id] ? doctorsMap[nextAppt.doctor_id].full_name : 'Ready to book'}
+            {nextAppt ? (doctor?.full_name || 'Assigned Physician') : 'Ready to book'}
           </span>
         </div>
       </div>
+
+      {/* ElevenLabs AI Voice Receptionist: Mitra */}
+      <MitraVoiceAgent />
 
       {/* Recent Appointments Preview */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-2xs">
@@ -129,48 +159,48 @@ export const PatientDashboard: React.FC = () => {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {appointments.slice(0, 5).map((appt) => {
-              const doc = doctorsMap[appt.doctor_id];
-              return (
-                <div key={appt.appointment_id} className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                  <div>
-                    <h3 className="font-bold text-slate-900">
-                      {doc ? doc.full_name : `Doctor ID ${appt.doctor_id}`}
-                    </h3>
-                    <p className="text-slate-500 mt-0.5">
-                      {doc?.specialization} • Date: {appt.appointment_date} • Time: {appt.start_time.slice(0, 5)}
-                    </p>
-                    {appt.reason_for_visit && (
-                      <p className="text-slate-400 mt-0.5 italic">Reason: {appt.reason_for_visit}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider ${appt.appointment_status === 'confirmed'
-                          ? 'bg-green-50 text-green-700 border border-green-200'
-                          : appt.appointment_status === 'cancelled'
-                            ? 'bg-red-50 text-red-700 border border-red-200'
-                            : appt.appointment_status === 'completed'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                        }`}
-                    >
-                      {appt.appointment_status}
-                    </span>
-                    <Link
-                      to="/patient/appointments"
-                      className="text-xs font-semibold text-slate-700 hover:text-blue-600 hover:underline"
-                    >
-                      Manage
-                    </Link>
-                  </div>
+            {appointments.slice(0, 5).map((appt) => (
+              <div key={appt.appointment_id} className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <h3 className="font-bold text-slate-900">
+                    {doctor?.full_name || 'Hospital Doctor'}
+                  </h3>
+                  <p className="text-slate-500 mt-0.5">
+                    {doctor?.specialization} • Date: {appt.appointment_date} • Time: {appt.start_time.slice(0, 5)}
+                  </p>
+                  {appt.reason_for_visit && (
+                    <p className="text-slate-400 mt-0.5 italic">Details: {appt.reason_for_visit}</p>
+                  )}
                 </div>
-              );
-            })}
+
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider ${
+                      appt.appointment_status === 'confirmed'
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : appt.appointment_status === 'cancelled'
+                        ? 'bg-red-50 text-red-700 border border-red-200'
+                        : appt.appointment_status === 'completed'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                    }`}
+                  >
+                    {appt.appointment_status}
+                  </span>
+                  <Link
+                    to="/patient/appointments"
+                    className="text-xs font-semibold text-slate-700 hover:text-blue-600 hover:underline"
+                  >
+                    Manage
+                  </Link>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
     </div>
   );
 };
+
+export default PatientDashboard;
